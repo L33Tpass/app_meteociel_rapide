@@ -1,15 +1,12 @@
 // --------- MAIN
 import 'dart:async';
 import 'dart:collection';
-//import 'dart:html';
-import 'package:flutter/cupertino.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:webview_flutter/webview_flutter.dart';
-
-import 'package:flutter_webview_plugin/flutter_webview_plugin.dart'; //Warning: The webview is not integrated in the widget tree, it is a native view on top of the flutter view.
 
 import 'package:html/parser.dart' as Parser;
 import 'package:http/http.dart' as Http;
@@ -22,7 +19,7 @@ String str_favoris = "favoris";
 
 void main() => runApp(MyApp());
 
-Color color = Colors.orange;
+Color color = Colors.green;
 
 // --------- APP
 class MyApp extends StatelessWidget {
@@ -32,9 +29,9 @@ class MyApp extends StatelessWidget {
     int randomNumber = random.nextInt(4);
     color = Colors.orange;
     if (randomNumber == 0) {
-      color = Colors.lightBlue;
+      color = Colors.green;
     } else if (randomNumber == 1) {
-      color = Colors.pink;
+      color = Colors.black;
     }
     print("COLOR " + color.toString());
     SystemChrome.setSystemUIOverlayStyle(

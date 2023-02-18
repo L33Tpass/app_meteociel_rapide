@@ -20,7 +20,6 @@ dependencies:
   flutter:
     sdk: flutter
   webview_flutter: ^2.0.2
-  flutter_webview_plugin: ^0.3.11
   shared_preferences: ^2.0.5
   http:
   html:
