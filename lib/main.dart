@@ -42,29 +42,29 @@ class MyApp extends StatelessWidget {
         //backgroundColor: Colors.brown,
         scaffoldBackgroundColor: Color.fromRGBO(0xEF, 0xEF, 0xEF, 1),
       ),
-      home: HomeScreen(title: 'Météo'),
+      home: MainActivity(title: 'Météo'),
     );
   }
 }
 
 // ----------- HOME
-class HomeScreen extends StatefulWidget {
-  HomeScreen({Key key, this.title})
-      : super(key: key); //parameters of the functiun
+class MainActivity extends StatefulWidget {
+  MainActivity({Key key, this.title}) : super(key: key); //parameters of the function
   final String title;
 
   @override
-  _HomeScreenState createState() => _HomeScreenState();
+  _MainActivityState createState() => _MainActivityState();
 }
 
 
 
+/*-------------------------------------------------------------------*/
+/*----------------------  CLASS DEFINITION  -------------------------*/
+/*-------------------------------------------------------------------*/
+/*---------- Here is defined the behaviour of the activity ----------*/
+/*-------------------------------------------------------------------*/
 
-
-
-/*--------------------------------------------------------------------------*/
-
-class _HomeScreenState extends State<HomeScreen> {
+class _MainActivityState extends State<MainActivity> {
   WebViewController controller;
   double webviewHeight = 0;
   bool loading_meteo = false;
@@ -90,16 +90,15 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    loadLastUrl(); // MANDATORY
+    initWebview(); // MANDATORY
     /*State.initState() must be a void method without an `async` keyword.
     Rather than awaiting on asynchronous work directly inside of initState,
     call a separate method to do this work without awaiting it.*/
   }
 
-  loadLastUrl() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
+  initWebview() async {
     setState(() {
-      init_url = (prefs.getString(str_key_lastURL) ?? "-2");
+      init_url = getLastUrlLoaded() as String;
       favoris = getFavorites() as List<String>;
       setStateLoading();
       print("INIT URL AFTER FIRST START ====> " + init_url);
@@ -107,14 +106,16 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-
-  void setStateFavorite(){
+  Future<void> setStateFavorite() async {
+    bool tempo = await isCurrentURLAFavorite(lastUrl);
     setState(() {
-      isAFavorite = isCurrentURLAFavorite(lastUrl);
+      isAFavorite = tempo;
+      print("URL SAVED ====> " + lastUrl);
+      print("FAVORIS : " + isAFavorite.toString());
     });
   }
 
-  void setStateLoading(){
+  void setStateLoading() {
     setState(() {
       loading_meteo = true;
       loading_meteo_finish = false;
@@ -122,7 +123,7 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  void setStateLoadingFinish(){
+  void setStateLoadingFinish() {
     setState(() {
       loading_meteo = false;
       loading_meteo_finish = true;
@@ -136,20 +137,27 @@ class _HomeScreenState extends State<HomeScreen> {
     return favorites;
   }
 
+  Future<String> getLastUrlLoaded() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    return (prefs.getString(str_key_lastURL) ?? "-2");
+  }
+
   Future<void> setFavorites(List<String> favorites) async {
+    print("===============  " + favorites.toString());
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(str_key_favoris, favorites);
   }
 
-  bool isCurrentURLAFavorite(String currentURL){
-    return getFavoriteIndex(currentURL) > 0;
+  Future<bool> isCurrentURLAFavorite(String currentURL) async {
+    return await getFavoriteIndex(currentURL) > 0;
   }
 
-  int getFavoriteIndex(String currentURL){ // returns -1 if it is not a favorite
-    List<String> favorites = getFavorites() as List<String>;
+  Future<int> getFavoriteIndex(String currentURL) async {
+    // returns -1 if it is not a favorite
+    List<String> favorites = await getFavorites();
     int alreadyFavoriteIndex = -1;
-    for(int i=0;i<favorites.length;i+2){
-      if(favorites[i+1].contains(currentURL)){
+    for (int i = 0; i < favorites.length; i + 2) {
+      if (favorites[i + 1].contains(currentURL)) {
         alreadyFavoriteIndex = i;
         break;
       }
@@ -157,46 +165,49 @@ class _HomeScreenState extends State<HomeScreen> {
     return alreadyFavoriteIndex;
   }
 
-  void updateFavorites(){
-    String currentCityURL = lastUrl;
-    if(isFinalWeatherURL(currentCityURL)){
+  Future<void> updateFavorites() async {
+    String currentCityName = nomVille;
+    String currentCityURL = await getLastUrlLoaded();
+    if (isValidWeatherURL(currentCityURL) && currentCityName != "Bonjour !") {
       //list is composed of city names and associated URLs, we check if current URL is already a favorite
-      List<String> favorites = getFavorites() as List<String>;
-      bool alreadyFavorite = isCurrentURLAFavorite(currentCityURL);
+      List<String> favorites = await getFavorites();
+      bool alreadyFavorite = await isCurrentURLAFavorite(currentCityURL);
 
       // update Favorites
-      String currentCityName = nomVille;
-      if(alreadyFavorite){ //suppress favorite
-        int alreadyFavoriteIndex = getFavoriteIndex(currentCityURL);
-        favorites.removeAt(alreadyFavoriteIndex+1); //suppress city URL
+      if (alreadyFavorite) { //suppress favorite
+        int alreadyFavoriteIndex = await getFavoriteIndex(currentCityURL);
+        favorites.removeAt(alreadyFavoriteIndex + 1); //suppress city URL
         favorites.removeAt(alreadyFavoriteIndex); //suppress city name
-        setFavorites(favorites);
-        //setStateFavorite(false);
       } else { //add favorite
         favorites.add(currentCityName);
         favorites.add(currentCityURL);
-        setFavorites(favorites);
-        //setStateFavorite(true);
       }
+      setFavorites(favorites);
       setStateFavorite();
     }
   }
 
-  bool isFinalWeatherURL(String URL){
-    return URL.contains("meteociel.fr/previsions"); //the HTML page is a weather forecast
+  bool isValidWeatherURL(String URL) {
+    return URL.contains(
+        "meteociel.fr/previsions"); //the HTML page is a weather forecast
   }
 
   void launchWebsite(String url) {
-
     if (!url.contains(lastUrl)) { // if it's not current page
 
       setStateLoading();
 
       Future(() async {
-        Http.Response response = await Http.get(Uri.parse("https://fetedujour.fr/"));
+        Http.Response response = await Http.get(
+            Uri.parse("https://fetedujour.fr/"));
         Dom.Document doc = Parser.parse(response.body);
-        Dom.Element element = doc.getElementsByClassName("bloc h1 fdj").first;
-        element.getElementsByTagName("span").first.remove();
+        Dom.Element element = doc
+            .getElementsByClassName("bloc h1 fdj")
+            .first;
+        element
+            .getElementsByTagName("span")
+            .first
+            .remove();
         nomFete = "St " + (element.text).trim();
       });
 
@@ -206,14 +217,19 @@ class _HomeScreenState extends State<HomeScreen> {
         String html_content = doc.outerHtml;
         List<Dom.Element> tables = doc.getElementsByTagName('table');
 
-        if (url.contains("action=getville")) { //liste des villes car meme code postal
+        if (url.contains(
+            "action=getville")) { //liste des villes car meme code postal
           for (Dom.Element table in tables) {
             LinkedHashMap<dynamic, String> attr = table.attributes;
             if (attr.toString().contains("width: 300px")) {
               String content = table.parent.innerHtml;
-              content = content.replaceAll("href=\"/pre", "href=\"http://www.meteociel.fr/pre");
-              String htmlContent = "<html>" + head + "<body>" + content + "<br><br>" + "</body></html>";
-              lastUrl = Uri.dataFromString(htmlContent, mimeType: 'text/html', encoding: utf8).toString();
+              content = content.replaceAll(
+                  "href=\"/pre", "href=\"http://www.meteociel.fr/pre");
+              String htmlContent = "<html>" + head + "<body>" + content +
+                  "<br><br>" + "</body></html>";
+              lastUrl = Uri.dataFromString(
+                  htmlContent, mimeType: 'text/html', encoding: utf8)
+                  .toString();
               controller.loadUrl(lastUrl);
               setStateLoadingFinish();
               break;
@@ -222,12 +238,12 @@ class _HomeScreenState extends State<HomeScreen> {
               controller.loadUrl(url);
             }
           }
-
-        } else if (isFinalWeatherURL(url)) { //ville unique obtenue
-          int index_start = html_content.indexOf("Prévisions météo à 3 jours pour ");
+        } else if (isValidWeatherURL(url)) { //ville unique obtenue
+          int index_start = html_content.indexOf(
+              "Prévisions météo à 3 jours pour ");
           String my_substring = html_content.substring(index_start);
           int index_stop = my_substring.indexOf("(");
-          my_substring = my_substring.substring(32, index_stop-1);
+          my_substring = my_substring.substring(32, index_stop - 1);
 
           nomVille = my_substring;
 
@@ -242,16 +258,22 @@ class _HomeScreenState extends State<HomeScreen> {
 
                 //get & set interesting content
                 String content = table.parent.innerHtml;
-                int index = content.indexOf("<table width=\"100%\"") - 5; // HOW TO SET CORRECT WIDTH ??
+                int index = content.indexOf("<table width=\"100%\"") -
+                    5; // HOW TO SET CORRECT WIDTH ??
                 content = content.substring(0, index); // delete page footer
                 content = content.replaceAll("//", "http://");
 
                 String setWidth = "<table style=\"border-collapse: collapse;\"";
-                content = content.replaceAll(setWidth, setWidth + " width=\"50px\"");
+                content =
+                    content.replaceAll(setWidth, setWidth + " width=\"100%\"");
 
                 // Reform and load HTML
-                String htmlContent = "<html>" + head + "<body>" + content + "</body></html>";
-                lastUrl = Uri.dataFromString(htmlContent, mimeType: 'text/html', encoding: utf8).toString();
+                String htmlContent = "<html>" + head + "<body>" + content +
+                    "</body></html>";
+                htmlContent = htmlContent.replaceAll("http://", "https://");
+                lastUrl = Uri.dataFromString(
+                    htmlContent, mimeType: 'text/html', encoding: utf8)
+                    .toString();
                 controller.loadUrl(lastUrl);
                 setStateLoadingFinish();
                 break;
@@ -268,23 +290,22 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
 
-
-
   /*-------------------------------------------------------------------*/
   /*------------------------  WIDGET TREE  ----------------------------*/
   /*-------------------------------------------------------------------*/
   /*--- Here is defined the graphical configuration of the activity ---*/
   /*-------------------------------------------------------------------*/
 
+  // This method is rerun every time setState is called
+
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called
     return Scaffold(
       body: SingleChildScrollView(
         child: Column(
           children: <Widget>[
             Opacity(
-              opacity: loading_meteo?1:0,
+              opacity: loading_meteo ? 1 : 0,
               child: LinearProgressIndicator(
                 backgroundColor: Color.fromRGBO(0xEF, 0xEF, 0xEF, 1),
               ),
@@ -292,50 +313,52 @@ class _HomeScreenState extends State<HomeScreen> {
             Container(
               padding: EdgeInsets.only(top: 50),
               child: Row(mainAxisAlignment: MainAxisAlignment.center,
-                  children:[
-                    Column(
-                        children:[
-                          Container(
-                            child: Text(
-                              '$nomVille',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  fontFamily: 'Raleway'
-                              ),
+                children: [
+                  Column(
+                      children: [
+                        Container(
+                          child: Text(
+                            '$nomVille',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                fontFamily: 'Raleway'
                             ),
                           ),
-                          Container(
-                            margin: EdgeInsets.only(top:5),
-                            child: Text(
-                              '$nomFete',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                  fontSize: 20,
-                                  fontFamily: 'Raleway'
-                              ),
-                            ),
-                          ),
-                        ]
-                    ),
-                    Container(
-                        padding: EdgeInsets.only(left: 20),
-                        child: IconButton(
-                          iconSize: 32.0,
-                          icon: isAFavorite ? const Icon(Icons.grade, color: Colors.black) : const Icon(Icons.grade_outlined, color: Colors.black),
-                          tooltip: 'Add to Favorites',
-                          onPressed: updateFavorites,
                         ),
+                        Container(
+                          margin: EdgeInsets.only(top: 5),
+                          child: Text(
+                            '$nomFete',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                fontSize: 20,
+                                fontFamily: 'Raleway'
+                            ),
+                          ),
+                        ),
+                      ]
+                  ),
+                  Container(
+                    padding: EdgeInsets.only(left: 20),
+                    child: IconButton(
+                      iconSize: 32.0,
+                      icon: isAFavorite ? const Icon(
+                          Icons.grade, color: Colors.black) : const Icon(
+                          Icons.grade_outlined, color: Colors.black),
+                      tooltip: 'Add to Favorites',
+                      onPressed: updateFavorites,
                     ),
-                  ],
+                  ),
+                ],
               ),
             ), //CITY/FETE/FAVORITE
             Opacity( //WEBVIEW
               opacity: webview_opacity,
               //visible: loading_meteo_finish,
               child: Container(
-                margin: EdgeInsets.only(top: 15, right: 10, left: 10),
+                margin: EdgeInsets.only(top: 15, right: 30, left: 30),
                 height: 500,
                 child: WebView(
                   gestureNavigationEnabled: true,
@@ -347,7 +370,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   onPageFinished: (url) {
                     print("URL ======> " + url);
                     setState(() {});
-                    launchWebsite(url); // doesnt loop because we check last_url==url?
+                    launchWebsite(
+                        url); // doesnt loop because we check last_url==url?
                   },
                 ),
               ),
@@ -365,13 +389,47 @@ class _HomeScreenState extends State<HomeScreen> {
                 onSubmitted: (String input) {
                   //updateWebviewVisibility();
                   setState(() {});
-                  launchWebsite('https://www.meteociel.fr/prevville.php?action=getville&ville=' + input + '&envoyer=ici');
+                  launchWebsite(
+                      'https://www.meteociel.fr/prevville.php?action=getville&ville=' +
+                          input + '&envoyer=ici');
                 },
               ),
-          ), //SEARCHVIEW
+            ), //SEARCHVIEW
+            Container(
+              padding: EdgeInsets.only(top: 20),
+              child:buildListViewFavorites(),
+            ), //FAVORITES LIST
           ],
         ),
       ),
+    );
+  }
+
+  Widget buildListViewFavorites() {
+    return FutureBuilder<List<String>>(
+      future: getFavorites(),
+      builder: (context, snapshot) {
+        List<String> list = snapshot.data;
+        int count = (list.length / 2).round();
+        return ListView.builder(
+          itemCount: count,
+          itemBuilder: (context, index) {
+            final item = list[index * 2];
+            return Card(
+              color: Colors.black,
+              child: ListTile(
+                title: Text(item),
+
+                onTap: () { //                                  <-- onTap
+                  setState(() {
+                    //titles.insert(index, 'Planet');
+                  });
+                },
+              ),
+            );
+          },
+        );
+      }
     );
   }
 }
