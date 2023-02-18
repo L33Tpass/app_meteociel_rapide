@@ -1,4 +1,3 @@
-// --------- MAIN
 import 'dart:async';
 import 'dart:collection';
 
@@ -14,12 +13,12 @@ import 'package:html/dom.dart' as Dom;
 import 'dart:convert' show utf8;
 import 'dart:math';
 
-String str_lastURL = "lasturl";
-String str_favoris = "favoris";
+String str_key_lastURL = "lasturl";
+String str_key_favoris = "favoris";
 
 void main() => runApp(MyApp());
 
-Color color = Colors.green;
+Color my_color = Colors.green;
 
 // --------- APP
 class MyApp extends StatelessWidget {
@@ -27,19 +26,19 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     Random random = new Random();
     int randomNumber = random.nextInt(4);
-    color = Colors.red;
+    my_color = Colors.red;
     if (randomNumber == 0) {
-      color = Colors.green;
+      my_color = Colors.green;
     } else if (randomNumber == 1) {
-      color = Colors.black;
+      my_color = Colors.black;
     }
-    print("COLOR " + color.toString());
+    print("COLOR " + my_color.toString());
     SystemChrome.setSystemUIOverlayStyle(
         SystemUiOverlayStyle(statusBarColor: Colors.transparent));
     return MaterialApp(
       title: 'Météo',
       theme: ThemeData(
-        primarySwatch: color,
+        primarySwatch: Colors.deepPurple, //my_color,
         //backgroundColor: Colors.brown,
         scaffoldBackgroundColor: Color.fromRGBO(0xEF, 0xEF, 0xEF, 1),
       ),
@@ -70,6 +69,7 @@ class _HomeScreenState extends State<HomeScreen> {
   double webviewHeight = 0;
   bool loading_meteo = false;
   bool loading_meteo_finish = false;
+  bool isAFavorite = false;
   double webview_opacity = 0.5;
   String lastUrl = "zzzz";
   String init_url;
@@ -90,21 +90,31 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    loadLastUrl();
+    loadLastUrl(); // MANDATORY
+    /*State.initState() must be a void method without an `async` keyword.
+    Rather than awaiting on asynchronous work directly inside of initState,
+    call a separate method to do this work without awaiting it.*/
   }
 
   loadLastUrl() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     setState(() {
-      init_url = (prefs.getString(str_lastURL) ?? "-2");
-      favoris = (prefs.getStringList(str_favoris) ?? []);
-      setLoading();
+      init_url = (prefs.getString(str_key_lastURL) ?? "-2");
+      favoris = getFavorites() as List<String>;
+      setStateLoading();
       print("INIT URL AFTER FIRST START ====> " + init_url);
       launchWebsite(init_url);
     });
   }
 
-  void setLoading() {
+
+  void setStateFavorite(){
+    setState(() {
+      isAFavorite = isCurrentURLAFavorite(lastUrl);
+    });
+  }
+
+  void setStateLoading(){
     setState(() {
       loading_meteo = true;
       loading_meteo_finish = false;
@@ -112,7 +122,7 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  void setLoadingFinish() {
+  void setStateLoadingFinish(){
     setState(() {
       loading_meteo = false;
       loading_meteo_finish = true;
@@ -120,11 +130,67 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  Future<List<String>> getFavorites() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String> favorites = (prefs.getStringList(str_key_favoris) ?? []);
+    return favorites;
+  }
+
+  Future<void> setFavorites(List<String> favorites) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(str_key_favoris, favorites);
+  }
+
+  bool isCurrentURLAFavorite(String currentURL){
+    return getFavoriteIndex(currentURL) > 0;
+  }
+
+  int getFavoriteIndex(String currentURL){ // returns -1 if it is not a favorite
+    List<String> favorites = getFavorites() as List<String>;
+    int alreadyFavoriteIndex = -1;
+    for(int i=0;i<favorites.length;i+2){
+      if(favorites[i+1].contains(currentURL)){
+        alreadyFavoriteIndex = i;
+        break;
+      }
+    }
+    return alreadyFavoriteIndex;
+  }
+
+  void updateFavorites(){
+    String currentCityURL = lastUrl;
+    if(isFinalWeatherURL(currentCityURL)){
+      //list is composed of city names and associated URLs, we check if current URL is already a favorite
+      List<String> favorites = getFavorites() as List<String>;
+      bool alreadyFavorite = isCurrentURLAFavorite(currentCityURL);
+
+      // update Favorites
+      String currentCityName = nomVille;
+      if(alreadyFavorite){ //suppress favorite
+        int alreadyFavoriteIndex = getFavoriteIndex(currentCityURL);
+        favorites.removeAt(alreadyFavoriteIndex+1); //suppress city URL
+        favorites.removeAt(alreadyFavoriteIndex); //suppress city name
+        setFavorites(favorites);
+        //setStateFavorite(false);
+      } else { //add favorite
+        favorites.add(currentCityName);
+        favorites.add(currentCityURL);
+        setFavorites(favorites);
+        //setStateFavorite(true);
+      }
+      setStateFavorite();
+    }
+  }
+
+  bool isFinalWeatherURL(String URL){
+    return URL.contains("meteociel.fr/previsions"); //the HTML page is a weather forecast
+  }
+
   void launchWebsite(String url) {
 
     if (!url.contains(lastUrl)) { // if it's not current page
 
-      setLoading();
+      setStateLoading();
 
       Future(() async {
         Http.Response response = await Http.get(Uri.parse("https://fetedujour.fr/"));
@@ -149,15 +215,15 @@ class _HomeScreenState extends State<HomeScreen> {
               String htmlContent = "<html>" + head + "<body>" + content + "<br><br>" + "</body></html>";
               lastUrl = Uri.dataFromString(htmlContent, mimeType: 'text/html', encoding: utf8).toString();
               controller.loadUrl(lastUrl);
-              setLoadingFinish();
+              setStateLoadingFinish();
               break;
             } else { //qu'une ville
               lastUrl = url;
               controller.loadUrl(url);
             }
           }
-        } else if (url.contains("meteociel.fr/previsions")) { //ville unique obtenue
 
+        } else if (isFinalWeatherURL(url)) { //ville unique obtenue
           int index_start = html_content.indexOf("Prévisions météo à 3 jours pour ");
           String my_substring = html_content.substring(index_start);
           int index_stop = my_substring.indexOf("(");
@@ -172,7 +238,7 @@ class _HomeScreenState extends State<HomeScreen> {
               if (text.contains("Vent km/h")) {
                 //save lastURL in storage
                 SharedPreferences prefs = await SharedPreferences.getInstance();
-                await prefs.setString(str_lastURL, url);
+                await prefs.setString(str_key_lastURL, url);
 
                 //get & set interesting content
                 String content = table.parent.innerHtml;
@@ -187,7 +253,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 String htmlContent = "<html>" + head + "<body>" + content + "</body></html>";
                 lastUrl = Uri.dataFromString(htmlContent, mimeType: 'text/html', encoding: utf8).toString();
                 controller.loadUrl(lastUrl);
-                setLoadingFinish();
+                setStateLoadingFinish();
                 break;
               }
             }
@@ -195,7 +261,7 @@ class _HomeScreenState extends State<HomeScreen> {
         } else { //URL quelconque
           lastUrl = url;
           controller.loadUrl(url);
-          setLoading();
+          setStateLoading();
         }
       });
     }
@@ -204,9 +270,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
 
 
-
-  /*--------------------------------------------------------------------------*/
-
+  /*-------------------------------------------------------------------*/
+  /*------------------------  WIDGET TREE  ----------------------------*/
+  /*-------------------------------------------------------------------*/
+  /*--- Here is defined the graphical configuration of the activity ---*/
+  /*-------------------------------------------------------------------*/
 
   @override
   Widget build(BuildContext context) {
@@ -220,45 +288,49 @@ class _HomeScreenState extends State<HomeScreen> {
               child: LinearProgressIndicator(
                 backgroundColor: Color.fromRGBO(0xEF, 0xEF, 0xEF, 1),
               ),
-            ),
-            Column(
-              children: [
-                Container(height: 50, width: 20,),
-                Row(mainAxisAlignment: MainAxisAlignment.center,
-                    children:[
+            ), //LOADING BAR
+            Container(
+              padding: EdgeInsets.only(top: 50),
+              child: Row(mainAxisAlignment: MainAxisAlignment.center,
+                  children:[
                     Column(
-                      children:[
-                        Container(
-                          child: Text(
-                            '$nomVille',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                fontFamily: 'Raleway'
+                        children:[
+                          Container(
+                            child: Text(
+                              '$nomVille',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  fontFamily: 'Raleway'
+                              ),
                             ),
                           ),
-                        ),
-                        Container(
-                          margin: EdgeInsets.only(top:5),
-                          child: Text(
-                            '$nomFete',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                                fontSize: 20,
-                                fontFamily: 'Raleway'
+                          Container(
+                            margin: EdgeInsets.only(top:5),
+                            child: Text(
+                              '$nomFete',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  fontSize: 20,
+                                  fontFamily: 'Raleway'
+                              ),
                             ),
                           ),
-                        ),
-                      ]
+                        ]
                     ),
                     Container(
-                      padding: EdgeInsets.only(left: 20),
-                      child:Icon(Icons.grade_outlined, size: 30)),
-                    ]
-                )
-              ],
-            ),
+                        padding: EdgeInsets.only(left: 20),
+                        child: IconButton(
+                          iconSize: 32.0,
+                          icon: isAFavorite ? const Icon(Icons.grade, color: Colors.black) : const Icon(Icons.grade_outlined, color: Colors.black),
+                          tooltip: 'Add to Favorites',
+                          onPressed: updateFavorites,
+                        ),
+                    ),
+                  ],
+              ),
+            ), //CITY/FETE/FAVORITE
             Opacity( //WEBVIEW
               opacity: webview_opacity,
               //visible: loading_meteo_finish,
@@ -279,7 +351,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   },
                 ),
               ),
-            ),
+            ), //WEBVIEW
             Container(
               width: 250,
               padding: EdgeInsets.only(top: 20),
@@ -293,10 +365,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 onSubmitted: (String input) {
                   //updateWebviewVisibility();
                   setState(() {});
-                  launchWebsite('http://www.meteociel.fr/prevville.php?action=getville&ville=' + input + '&envoyer=ici');
+                  launchWebsite('https://www.meteociel.fr/prevville.php?action=getville&ville=' + input + '&envoyer=ici');
                 },
               ),
-            ),
+          ), //SEARCHVIEW
           ],
         ),
       ),
