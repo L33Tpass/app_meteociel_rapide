@@ -27,7 +27,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     Random random = new Random();
     int randomNumber = random.nextInt(4);
-    color = Colors.orange;
+    color = Colors.red;
     if (randomNumber == 0) {
       color = Colors.green;
     } else if (randomNumber == 1) {
