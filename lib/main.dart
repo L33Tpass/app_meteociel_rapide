@@ -137,6 +137,10 @@ class _MainActivityState extends State<MainActivity> {
     return favorites;
   }
 
+  Future<List<String>> getFavoritesTest() async {
+    return ["Villeurbanne", "https://www.meteociel.fr/previsions/25767/villeurbanne.htm","Meyzieu", "https://www.meteociel.fr/previsions/25767/villeurbanne.htm"];
+  }
+
   Future<String> getLastUrlLoaded() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     return (prefs.getString(str_key_lastURL) ?? "-2");
@@ -188,7 +192,7 @@ class _MainActivityState extends State<MainActivity> {
   }
 
   bool isValidWeatherURL(String URL) {
-    return URL.contains("meteociel.fr/previsions"); //the HTML page is a weather forecast
+    return URL.contains("meteociel.fr/previsions"); //Check if the HTML page is a meteociel weather forecast
   }
 
   void launchWebsite(String url) {
@@ -429,8 +433,18 @@ class _MainActivityState extends State<MainActivity> {
               ),
             ), //SEARCHVIEW
             Container(
-              padding: EdgeInsets.only(top: 20),
-              child:buildListViewFavorites(),
+              height: 400,
+              width: 300,
+              //padding: EdgeInsets.only(top:0),
+              child: buildListViewFavorites(),
+              decoration: BoxDecoration(
+                  border: Border.all(
+                    color: Colors.black, //color of border
+                    width: 2, //width of border
+                  ),
+                  borderRadius: BorderRadius.circular(10)
+              ),
+
             ), //FAVORITES LIST
           ],
         ),
@@ -440,7 +454,8 @@ class _MainActivityState extends State<MainActivity> {
 
   Widget buildListViewFavorites() {
     return FutureBuilder<List<String>>(
-      future: getFavorites(),
+      //future: getFavorites(),
+      future: getFavoritesTest(),
       builder: (context, snapshot) {
         List<String> list = snapshot.data;
         int count = (list.length / 2).round();
@@ -449,18 +464,17 @@ class _MainActivityState extends State<MainActivity> {
           itemBuilder: (context, index) {
             final item = list[index * 2];
             return Card(
-              color: Colors.black,
+              color: Colors.yellow,
               child: ListTile(
                 title: Text(item),
-
-                onTap: () { //                                  <-- onTap
+                onTap: () {
                   setState(() {
-                    //titles.insert(index, 'Planet');
+                    //TO DO
                   });
                 },
               ),
             );
-          },
+          }
         );
       }
     );
