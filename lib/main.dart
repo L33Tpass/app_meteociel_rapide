@@ -84,7 +84,7 @@ class _MainActivityState extends State<MainActivity> {
       "a {max-width: 100%!important;color:#808080; text-decoration:none;width:auto!important; height: auto!important;}" + // ici pour modif apparence liens
       //"table{cellpadding=\"0\";max-width: 100%; width:auto; height: auto;}" +
       "@font-face {font-family: raleway; src: url(\"file:///android_asset/raleway.ttf\")}" +
-      "tr {font-size:30px!important;}" + //lignes tableau
+      "tr {font-size:36px!important;}" + //lignes tableau
       "body {background-color:#EFEFEF;font-family: raleway!important;color: #000000;}</style></head>";
 
   @override
@@ -227,8 +227,8 @@ class _MainActivityState extends State<MainActivity> {
               controller.loadUrl(url);
             }
           }
-        } else if (isValidWeatherURL(url)) { //ville unique obtenue
 
+        } else if (isValidWeatherURL(url)) { //ville unique obtenue
           //get nom ville
           String html_main_weather = doc_main_weather.outerHtml;
           int index_start = html_main_weather.indexOf("Prévisions météo à 3 jours pour ");
@@ -243,6 +243,14 @@ class _MainActivityState extends State<MainActivity> {
             String text = table.innerHtml.toString();
             if (!text.contains("table")) {
               if (text.contains("Vent km/h")) {
+                //Suppress pressure column
+                List<Dom.Element> cells = table.getElementsByTagName('td');
+                for (Dom.Element cell in cells) {
+                  if(cell.innerHtml.contains("Pression") || cell.innerHtml.contains("hPa")){
+                    cell.remove();
+                  }
+                }
+
                 //save lastURL in storage
                 SharedPreferences prefs = await SharedPreferences.getInstance();
                 await prefs.setString(str_key_lastURL, url);
@@ -272,6 +280,14 @@ class _MainActivityState extends State<MainActivity> {
             String text = table.innerHtml.toString();
             if (!text.contains("table")) {
               if (text.contains("Vent km/h")) {
+                //Suppress pressure column
+                List<Dom.Element> cells = table.getElementsByTagName('td');
+                for (Dom.Element cell in cells) {
+                  if(cell.innerHtml.contains("Pression") || cell.innerHtml.contains("hPa")){
+                    cell.remove();
+                  }
+                }
+
                 //get & set interesting content
                 content_tendances = table.parent.innerHtml;
 
@@ -289,25 +305,17 @@ class _MainActivityState extends State<MainActivity> {
             }
           }
 
-          //remove pressure column
+          // Merge previsions and tendances forecasts
           String final_content = content_previsions + content_tendances;
-          /*Dom.Document doc_final = Parser.parse(final_content);
-          List<Dom.Element> cells = doc_final.getElementsByTagName('td');
-          for (Dom.Element cell in cells) {
-            if(cell.innerHtml.contains("Pression") || cell.innerHtml.contains("hPa")){
-              cell.remove();
-            }
-          }
-          final_content = doc_final.toString();*/
 
           // Reform and load HTML
+          final_content = final_content.replaceAll("Humidité", "Hum."); //Shorten column title
+          final_content = final_content.replaceAll("<img ", "<img style=\"width:55%;\" "); //Set images bigger
           String htmlContent = "<html>" + head_CSS + "<body>" + final_content + "</body></html>";
           htmlContent = htmlContent.replaceAll("http://", "https://");
-          //htmlContent = htmlContent.replaceAll("<tr>", "<tr style=\"font-size:20px!important;\">");
           lastUrl = Uri.dataFromString(htmlContent, mimeType: 'text/html', encoding: utf8).toString();
           controller.loadUrl(lastUrl);
           setStateLoadingFinish();
-
 
         } else { //URL quelconque
           lastUrl = url;
