@@ -270,7 +270,6 @@ class _MainActivityState extends State<MainActivity> {
 
           //get tendances : 6 jours suivants
           String url_tendances = url.replaceAll("previsions", "tendances");
-          print("==== URL : " + url_tendances);
           Http.Response response_tendances = await Http.get(Uri.parse(url_tendances));
           Dom.Document doc_tendances = Parser.parse(response_tendances.body);
           List<Dom.Element> tables_tendances = doc_tendances.getElementsByTagName('table');
