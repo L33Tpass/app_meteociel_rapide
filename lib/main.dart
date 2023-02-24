@@ -33,8 +33,7 @@ class MyApp extends StatelessWidget {
       my_color = Colors.black;
     }
     print("COLOR " + my_color.toString());
-    SystemChrome.setSystemUIOverlayStyle(
-        SystemUiOverlayStyle(statusBarColor: Colors.transparent));
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(statusBarColor: Colors.transparent));
     return MaterialApp(
       title: 'Météo',
       theme: ThemeData(
@@ -81,11 +80,12 @@ class _MainActivityState extends State<MainActivity> {
   int colUrlVille = 2;
   int nbColonnes = 2;
 
-  String head = "<head><style type=\"text/css\">" +
+  String head_CSS = "<head><style type=\"text/css\">" +
       "a {max-width: 100%!important;color:#808080; text-decoration:none;width:auto!important; height: auto!important;}" + // ici pour modif apparence liens
       //"table{cellpadding=\"0\";max-width: 100%; width:auto; height: auto;}" +
       "@font-face {font-family: raleway; src: url(\"file:///android_asset/raleway.ttf\")}" +
-      "body {background-color:#EFEFEF;font-family: raleway!important;text-align: justify;color: #000000;margin:1!important;}</style></head>";
+      "tr {font-size:30px!important;}" + //lignes tableau
+      "body {background-color:#EFEFEF;font-family: raleway!important;color: #000000;}</style></head>";
 
   @override
   void initState() {
@@ -117,7 +117,7 @@ class _MainActivityState extends State<MainActivity> {
 
   void setStateLoading() {
     setState(() {
-      loading_meteo = true;
+      //loading_meteo = true;
       loading_meteo_finish = false;
       webview_opacity = 0.5;
     });
@@ -188,8 +188,7 @@ class _MainActivityState extends State<MainActivity> {
   }
 
   bool isValidWeatherURL(String URL) {
-    return URL.contains(
-        "meteociel.fr/previsions"); //the HTML page is a weather forecast
+    return URL.contains("meteociel.fr/previsions"); //the HTML page is a weather forecast
   }
 
   void launchWebsite(String url) {
@@ -197,39 +196,29 @@ class _MainActivityState extends State<MainActivity> {
 
       setStateLoading();
 
+      // GET FETE DU JOUR
       Future(() async {
-        Http.Response response = await Http.get(
-            Uri.parse("https://fetedujour.fr/"));
+        Http.Response response = await Http.get(Uri.parse("https://fetedujour.fr/"));
         Dom.Document doc = Parser.parse(response.body);
-        Dom.Element element = doc
-            .getElementsByClassName("bloc h1 fdj")
-            .first;
-        element
-            .getElementsByTagName("span")
-            .first
-            .remove();
+        Dom.Element element = doc.getElementsByClassName("bloc h1 fdj").first;
+        element.getElementsByTagName("span").first.remove();
         nomFete = "St " + (element.text).trim();
       });
 
+      //GET WEATHER TABLE
       Future(() async {
-        Http.Response response = await Http.get(Uri.parse(url));
-        Dom.Document doc = Parser.parse(response.body);
-        String html_content = doc.outerHtml;
-        List<Dom.Element> tables = doc.getElementsByTagName('table');
+        Http.Response html_main_weather = await Http.get(Uri.parse(url));
+        Dom.Document doc_main_weather = Parser.parse(html_main_weather.body);
+        List<Dom.Element> tables_main_weather = doc_main_weather.getElementsByTagName('table');
 
-        if (url.contains(
-            "action=getville")) { //liste des villes car meme code postal
-          for (Dom.Element table in tables) {
+        if (url.contains("action=getville")) { //liste des villes car meme code postal
+          for (Dom.Element table in tables_main_weather) {
             LinkedHashMap<dynamic, String> attr = table.attributes;
             if (attr.toString().contains("width: 300px")) {
               String content = table.parent.innerHtml;
-              content = content.replaceAll(
-                  "href=\"/pre", "href=\"http://www.meteociel.fr/pre");
-              String htmlContent = "<html>" + head + "<body>" + content +
-                  "<br><br>" + "</body></html>";
-              lastUrl = Uri.dataFromString(
-                  htmlContent, mimeType: 'text/html', encoding: utf8)
-                  .toString();
+              content = content.replaceAll("href=\"/pre", "href=\"http://www.meteociel.fr/pre");
+              String htmlContent = "<html>" + head_CSS + "<body>" + content + "<br><br>" + "</body></html>";
+              lastUrl = Uri.dataFromString(htmlContent, mimeType: 'text/html', encoding: utf8).toString();
               controller.loadUrl(lastUrl);
               setStateLoadingFinish();
               break;
@@ -239,17 +228,19 @@ class _MainActivityState extends State<MainActivity> {
             }
           }
         } else if (isValidWeatherURL(url)) { //ville unique obtenue
-          int index_start = html_content.indexOf(
-              "Prévisions météo à 3 jours pour ");
-          String my_substring = html_content.substring(index_start);
+
+          //get nom ville
+          String html_main_weather = doc_main_weather.outerHtml;
+          int index_start = html_main_weather.indexOf("Prévisions météo à 3 jours pour ");
+          String my_substring = html_main_weather.substring(index_start);
           int index_stop = my_substring.indexOf("(");
           my_substring = my_substring.substring(32, index_stop - 1);
-
           nomVille = my_substring;
 
-          for (Dom.Element table in tables) {
+          //get previsions : 4 jours
+          String content_previsions = "";
+          for (Dom.Element table in tables_main_weather) {
             String text = table.innerHtml.toString();
-            print(text);
             if (!text.contains("table")) {
               if (text.contains("Vent km/h")) {
                 //save lastURL in storage
@@ -257,29 +248,67 @@ class _MainActivityState extends State<MainActivity> {
                 await prefs.setString(str_key_lastURL, url);
 
                 //get & set interesting content
-                String content = table.parent.innerHtml;
-                int index = content.indexOf("<table width=\"100%\"") -
-                    5; // HOW TO SET CORRECT WIDTH ??
-                content = content.substring(0, index); // delete page footer
-                content = content.replaceAll("//", "http://");
+                content_previsions = table.parent.innerHtml;
+                int index = content_previsions.indexOf("<table width=\"100%\"") - 5;
+                content_previsions = content_previsions.substring(0, index); // Delete page footer
+                content_previsions = content_previsions.replaceAll("//", "https://");
 
                 String setWidth = "<table style=\"border-collapse: collapse;\"";
-                content =
-                    content.replaceAll(setWidth, setWidth + " width=\"100%\"");
-
-                // Reform and load HTML
-                String htmlContent = "<html>" + head + "<body>" + content +
-                    "</body></html>";
-                htmlContent = htmlContent.replaceAll("http://", "https://");
-                lastUrl = Uri.dataFromString(
-                    htmlContent, mimeType: 'text/html', encoding: utf8)
-                    .toString();
-                controller.loadUrl(lastUrl);
-                setStateLoadingFinish();
+                content_previsions = content_previsions.replaceAll(setWidth, setWidth + " width=\"100%\"");
                 break;
               }
             }
           }
+
+          //get tendances : 6 jours suivants
+          String url_tendances = url.replaceAll("previsions", "tendances");
+          print("==== URL : " + url_tendances);
+          Http.Response response_tendances = await Http.get(Uri.parse(url_tendances));
+          Dom.Document doc_tendances = Parser.parse(response_tendances.body);
+          List<Dom.Element> tables_tendances = doc_tendances.getElementsByTagName('table');
+
+          String content_tendances = "";
+          for (Dom.Element table in tables_tendances) {
+            String text = table.innerHtml.toString();
+            if (!text.contains("table")) {
+              if (text.contains("Vent km/h")) {
+                //get & set interesting content
+                content_tendances = table.parent.innerHtml;
+
+                int index = content_tendances.indexOf("raf.</td>") + 9;
+                content_tendances = content_tendances.substring(index); // Delete table header
+
+                index = content_tendances.indexOf("id=\"biolink\"") - 4;
+                content_tendances = content_tendances.substring(0, index); // Delete page footer
+                content_tendances = content_tendances.replaceAll("//", "https://");
+
+                String setWidth = "<table style=\"border-collapse: collapse;\"";
+                content_tendances = content_tendances.replaceAll(setWidth, setWidth + " width=\"100%\"");
+                break;
+              }
+            }
+          }
+
+          //remove pressure column
+          String final_content = content_previsions + content_tendances;
+          /*Dom.Document doc_final = Parser.parse(final_content);
+          List<Dom.Element> cells = doc_final.getElementsByTagName('td');
+          for (Dom.Element cell in cells) {
+            if(cell.innerHtml.contains("Pression") || cell.innerHtml.contains("hPa")){
+              cell.remove();
+            }
+          }
+          final_content = doc_final.toString();*/
+
+          // Reform and load HTML
+          String htmlContent = "<html>" + head_CSS + "<body>" + final_content + "</body></html>";
+          htmlContent = htmlContent.replaceAll("http://", "https://");
+          //htmlContent = htmlContent.replaceAll("<tr>", "<tr style=\"font-size:20px!important;\">");
+          lastUrl = Uri.dataFromString(htmlContent, mimeType: 'text/html', encoding: utf8).toString();
+          controller.loadUrl(lastUrl);
+          setStateLoadingFinish();
+
+
         } else { //URL quelconque
           lastUrl = url;
           controller.loadUrl(url);
@@ -358,8 +387,8 @@ class _MainActivityState extends State<MainActivity> {
               opacity: webview_opacity,
               //visible: loading_meteo_finish,
               child: Container(
-                margin: EdgeInsets.only(top: 15, right: 30, left: 30),
-                height: 500,
+                margin: EdgeInsets.only(top: 15, right: 10, left: 10),
+                height: 800,
                 child: WebView(
                   gestureNavigationEnabled: true,
                   initialUrl: init_url,
@@ -370,8 +399,7 @@ class _MainActivityState extends State<MainActivity> {
                   onPageFinished: (url) {
                     print("URL ======> " + url);
                     setState(() {});
-                    launchWebsite(
-                        url); // doesnt loop because we check last_url==url?
+                    launchWebsite(url); // doesnt loop because we check last_url==url?
                   },
                 ),
               ),
@@ -389,9 +417,7 @@ class _MainActivityState extends State<MainActivity> {
                 onSubmitted: (String input) {
                   //updateWebviewVisibility();
                   setState(() {});
-                  launchWebsite(
-                      'https://www.meteociel.fr/prevville.php?action=getville&ville=' +
-                          input + '&envoyer=ici');
+                  launchWebsite('https://www.meteociel.fr/prevville.php?action=getville&ville=' + input + '&envoyer=ici');
                 },
               ),
             ), //SEARCHVIEW
