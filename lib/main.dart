@@ -138,7 +138,7 @@ class _MainActivityState extends State<MainActivity> {
   }
 
   Future<List<String>> getFavoritesTest() async {
-    return ["Villeurbanne", "https://www.meteociel.fr/previsions/25767/villeurbanne.htm","Meyzieu", "https://www.meteociel.fr/previsions/25767/villeurbanne.htm"];
+    return ["Villeurbanne", "https://www.meteociel.fr/previsions/25767/villeurbanne.htm","Villieu-Loyes-Mollon", "https://www.meteociel.fr/previsions/410/villieu_loyes_mollon.htm"];
   }
 
   Future<String> getLastUrlLoaded() async {
@@ -433,18 +433,7 @@ class _MainActivityState extends State<MainActivity> {
               ),
             ), //SEARCHVIEW
             Container(
-              height: 400,
-              width: 300,
-              //padding: EdgeInsets.only(top:0),
               child: buildListViewFavorites(),
-              decoration: BoxDecoration(
-                  border: Border.all(
-                    color: Colors.black, //color of border
-                    width: 2, //width of border
-                  ),
-                  borderRadius: BorderRadius.circular(10)
-              ),
-
             ), //FAVORITES LIST
           ],
         ),
@@ -460,17 +449,20 @@ class _MainActivityState extends State<MainActivity> {
         List<String> list = snapshot.data;
         int count = (list.length / 2).round();
         return ListView.builder(
+          padding: EdgeInsets.only(top: 10, bottom: 10), //remove padding top
+          shrinkWrap: true, //auto height
+          physics: NeverScrollableScrollPhysics(), //not scrollable
           itemCount: count,
           itemBuilder: (context, index) {
             final item = list[index * 2];
             return Card(
-              color: Colors.yellow,
+              elevation: 0, //remove shadow
+              color: const Color(0xFFEFEFEF),
               child: ListTile(
-                title: Text(item),
+                title: Text(item, textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold),),
                 onTap: () {
-                  setState(() {
-                    //TO DO
-                  });
+                  setState(() {});
+                  launchWebsite(list[index*2+1]);
                 },
               ),
             );
