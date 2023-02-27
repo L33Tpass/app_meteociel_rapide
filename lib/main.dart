@@ -11,7 +11,6 @@ import 'package:html/parser.dart' as Parser;
 import 'package:http/http.dart' as Http;
 import 'package:html/dom.dart' as Dom;
 import 'dart:convert' show utf8;
-import 'dart:math';
 
 String str_key_lastURL = "lasturl";
 String str_key_favoris = "favoris";
@@ -24,21 +23,10 @@ Color my_color = Colors.green;
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    Random random = new Random();
-    int randomNumber = random.nextInt(4);
-    my_color = Colors.red;
-    if (randomNumber == 0) {
-      my_color = Colors.green;
-    } else if (randomNumber == 1) {
-      my_color = Colors.black;
-    }
-    print("COLOR " + my_color.toString());
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(statusBarColor: Colors.transparent));
     return MaterialApp(
-      title: 'Météo',
       theme: ThemeData(
         primarySwatch: Colors.deepPurple, //my_color,
-        //backgroundColor: Colors.brown,
         scaffoldBackgroundColor: Color.fromRGBO(0xEF, 0xEF, 0xEF, 1),
       ),
       home: MainActivity(title: 'Météo'),
@@ -82,10 +70,10 @@ class _MainActivityState extends State<MainActivity> {
 
   String head_CSS = "<head><style type=\"text/css\">" +
       "a {max-width: 100%!important;color:#808080; text-decoration:none;width:auto!important; height: auto!important;}" + // ici pour modif apparence liens
-      //"table{cellpadding=\"0\";max-width: 100%; width:auto; height: auto;}" +
-      "@font-face {font-family: raleway; src: url(\"file:///android_asset/raleway.ttf\")}" +
+      "table{cellpadding=\"0\";width: 100%; height: auto;}" + //Affichage liste villes avec même code postal
+      //"@font-face {font-family: raleway; src: url(\"file:///android_asset/raleway.ttf\")}" + //Changement police texte (ne fonctionne pas pour le moment)
       "tr {font-size:36px!important;}" + //lignes tableau
-      "body {background-color:#EFEFEF;font-family: raleway!important;color: #000000;}</style></head>";
+      "body {background-color:#EFEFEF;font-family: raleway!important;color: #000000;}</style></head>"; //Background color
 
   @override
   void initState() {
@@ -97,13 +85,9 @@ class _MainActivityState extends State<MainActivity> {
   }
 
   initWebview() async {
-    setState(() {
-      init_url = getLastUrlLoaded() as String;
-      favoris = getFavorites() as List<String>;
-      setStateLoading();
-      print("INIT URL AFTER FIRST START ====> " + init_url);
-      launchWebsite(init_url);
-    });
+    Future<String> tempo_url = getLastUrlLoaded();
+    init_url = await tempo_url; //get String from Future<String>
+    launchWebsite(init_url);
   }
 
   Future<void> setStateFavorite() async {
@@ -111,13 +95,13 @@ class _MainActivityState extends State<MainActivity> {
     setState(() {
       isAFavorite = tempo;
       print("URL SAVED ====> " + lastUrl);
-      print("FAVORIS : " + isAFavorite.toString());
+      print("FAVORIS =====> " + isAFavorite.toString());
     });
   }
 
   void setStateLoading() {
     setState(() {
-      //loading_meteo = true;
+      loading_meteo = true;
       loading_meteo_finish = false;
       webview_opacity = 0.5;
     });
@@ -147,7 +131,7 @@ class _MainActivityState extends State<MainActivity> {
   }
 
   Future<void> setFavorites(List<String> favorites) async {
-    print("===============  " + favorites.toString());
+    print("FAVORITES CHANGED ===============>  " + favorites.toString());
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(str_key_favoris, favorites);
   }
@@ -173,7 +157,7 @@ class _MainActivityState extends State<MainActivity> {
     String currentCityName = nomVille;
     String currentCityURL = await getLastUrlLoaded();
     if (isValidWeatherURL(currentCityURL) && currentCityName != "Bonjour !") {
-      //list is composed of city names and associated URLs, we check if current URL is already a favorite
+      //Favorites list is composed of city names and associated URLs, we check if current URL is already a favorite
       List<String> favorites = await getFavorites();
       bool alreadyFavorite = await isCurrentURLAFavorite(currentCityURL);
 
@@ -197,8 +181,8 @@ class _MainActivityState extends State<MainActivity> {
 
   void launchWebsite(String url) {
     if (!url.contains(lastUrl)) { // if it's not current page
-
       setStateLoading();
+      print("URL LOADED =============> " + url);
 
       // GET FETE DU JOUR
       Future(() async {
@@ -381,12 +365,12 @@ class _MainActivityState extends State<MainActivity> {
                       ]
                   ),
                   Container(
-                    padding: EdgeInsets.only(left: 20),
+                    padding: EdgeInsets.only(left: 14),
                     child: IconButton(
                       iconSize: 32.0,
                       icon: isAFavorite ? const Icon(
-                          Icons.grade, color: Colors.black) : const Icon(
-                          Icons.grade_outlined, color: Colors.black),
+                          Icons.bookmark_add_outlined, color: Colors.black) : const Icon(
+                          Icons.bookmark_added, color: Colors.black),
                       tooltip: 'Add to Favorites',
                       onPressed: updateFavorites,
                     ),
@@ -396,7 +380,6 @@ class _MainActivityState extends State<MainActivity> {
             ), //CITY/FETE/FAVORITE
             Opacity( //WEBVIEW
               opacity: webview_opacity,
-              //visible: loading_meteo_finish,
               child: Container(
                 margin: EdgeInsets.only(top: 15, right: 10, left: 10),
                 height: 800,
@@ -408,8 +391,6 @@ class _MainActivityState extends State<MainActivity> {
                     controller = webViewController;
                   },
                   onPageFinished: (url) {
-                    print("URL ======> " + url);
-                    setState(() {});
                     launchWebsite(url); // doesnt loop because we check last_url==url?
                   },
                 ),
@@ -419,15 +400,12 @@ class _MainActivityState extends State<MainActivity> {
               width: 250,
               padding: EdgeInsets.only(top: 20),
               child: TextField(
-                //style: Theme.of(context).textTheme.display1, //text size
                 decoration: InputDecoration(
                   icon: Icon(Icons.search),
                   labelText: 'Ville, code postal, ...',
                   border: OutlineInputBorder(),
                 ),
                 onSubmitted: (String input) {
-                  //updateWebviewVisibility();
-                  setState(() {});
                   launchWebsite('https://www.meteociel.fr/prevville.php?action=getville&ville=' + input + '&envoyer=ici');
                 },
               ),
@@ -447,7 +425,8 @@ class _MainActivityState extends State<MainActivity> {
       future: getFavoritesTest(),
       builder: (context, snapshot) {
         List<String> list = snapshot.data;
-        int count = (list.length / 2).round();
+        int count = 0;
+        if(list!=null){count = (list.length / 2).round();}
         return ListView.builder(
           padding: EdgeInsets.only(top: 10, bottom: 10), //remove padding top
           shrinkWrap: true, //auto height
@@ -461,7 +440,6 @@ class _MainActivityState extends State<MainActivity> {
               child: ListTile(
                 title: Text(item, textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold),),
                 onTap: () {
-                  setState(() {});
                   launchWebsite(list[index*2+1]);
                 },
               ),
