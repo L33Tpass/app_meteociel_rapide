@@ -15,11 +15,15 @@ import 'dart:convert' show utf8;
 String str_key_lastURL = "lasturl";
 String str_key_favoris = "favoris";
 
+
+
+
+// ---------------
+// ----------- APP
+// ---------------
+
 void main() => runApp(MyApp());
 
-Color my_color = Colors.green;
-
-// --------- APP
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -34,7 +38,11 @@ class MyApp extends StatelessWidget {
   }
 }
 
+
+
+// ----------------
 // ----------- HOME
+// ----------------
 class MainActivity extends StatefulWidget {
   MainActivity({Key key, this.title}) : super(key: key); //parameters of the function
   final String title;
@@ -45,20 +53,23 @@ class MainActivity extends StatefulWidget {
 
 
 
-/*-------------------------------------------------------------------*/
-/*----------------------  CLASS DEFINITION  -------------------------*/
-/*-------------------------------------------------------------------*/
-/*---------- Here is defined the behaviour of the activity ----------*/
-/*-------------------------------------------------------------------*/
-
+// -----------------
+// ----------- CLASS
+// -----------------
 class _MainActivityState extends State<MainActivity> {
+  /*-------------------------------------------------------------------*/
+  /*-----------------------  VARS DEFINITION  -------------------------*/
+  /*-------------------------------------------------------------------*/
+  /*---------- Here is defined the behaviour of the activity ----------*/
+  /*-------------------------------------------------------------------*/
   WebViewController controller;
   double webviewHeight = 0;
   bool loading_meteo = false;
   bool loading_meteo_finish = false;
-  bool isAFavorite = false;
   double webview_opacity = 0.5;
+  bool webview_visibility = false;
   String lastUrl = "zzzz";
+  String realUrlShown = "zzzz";
   String init_url;
   String nomVille = "Bonjour !";
   String nomFete = "";
@@ -75,6 +86,14 @@ class _MainActivityState extends State<MainActivity> {
       "tr {font-size:36px!important;}" + //lignes tableau
       "body {background-color:#EFEFEF;font-family: raleway!important;color: #000000;}</style></head>"; //Background color
 
+
+  /*-------------------------------------------------------------------*/
+  /*---------------------  BEHAVIOR DEFINITION  -----------------------*/
+  /*-------------------------------------------------------------------*/
+  /*---------- Here is defined the behavior of the activity -----------*/
+  /*-------------------------------------------------------------------*/
+
+
   @override
   void initState() {
     super.initState();
@@ -87,22 +106,20 @@ class _MainActivityState extends State<MainActivity> {
   initWebview() async {
     Future<String> tempo_url = getLastUrlLoaded();
     init_url = await tempo_url; //get String from Future<String>
-    launchWebsite(init_url);
-  }
-
-  Future<void> setStateFavorite() async {
-    bool tempo = await isCurrentURLAFavorite(lastUrl);
-    setState(() {
-      isAFavorite = tempo;
-      print("URL SAVED ====> " + lastUrl);
-      print("FAVORIS =====> " + isAFavorite.toString());
-    });
+    if(isValidWeatherURL(init_url)) {
+      launchWebsite(init_url);
+    } else {
+      setState(() {
+        webview_visibility = false;
+      });
+    }
   }
 
   void setStateLoading() {
     setState(() {
       loading_meteo = true;
       loading_meteo_finish = false;
+      webview_visibility = true;
       webview_opacity = 0.5;
     });
   }
@@ -111,8 +128,21 @@ class _MainActivityState extends State<MainActivity> {
     setState(() {
       loading_meteo = false;
       loading_meteo_finish = true;
+      webview_visibility = true;
       webview_opacity = 1;
     });
+  }
+
+  Future<String> getLastUrlLoaded() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    return (prefs.getString(str_key_lastURL) ?? "-2");
+  }
+
+  /* ----- FAVORITES RELATED FUNCTIONS ----- */
+
+  Future<bool> isCurrentURLAFavorite(String currentURL) async {
+    bool result = await getFavoriteIndex(currentURL) > 0;
+    return result;
   }
 
   Future<List<String>> getFavorites() async {
@@ -121,33 +151,22 @@ class _MainActivityState extends State<MainActivity> {
     return favorites;
   }
 
-  Future<List<String>> getFavoritesTest() async {
-    return ["Villeurbanne", "https://www.meteociel.fr/previsions/25767/villeurbanne.htm","Villieu-Loyes-Mollon", "https://www.meteociel.fr/previsions/410/villieu_loyes_mollon.htm"];
-  }
-
-  Future<String> getLastUrlLoaded() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    return (prefs.getString(str_key_lastURL) ?? "-2");
-  }
-
   Future<void> setFavorites(List<String> favorites) async {
     print("FAVORITES CHANGED ===============>  " + favorites.toString());
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(str_key_favoris, favorites);
   }
 
-  Future<bool> isCurrentURLAFavorite(String currentURL) async {
-    return await getFavoriteIndex(currentURL) > 0;
-  }
-
   Future<int> getFavoriteIndex(String currentURL) async {
     // returns -1 if it is not a favorite
     List<String> favorites = await getFavorites();
     int alreadyFavoriteIndex = -1;
-    for (int i = 0; i < favorites.length; i + 2) {
-      if (favorites[i + 1].contains(currentURL)) {
-        alreadyFavoriteIndex = i;
-        break;
+    if(favorites!=null) {
+      for (int i = 0; i < favorites.length; i = i + 2) {
+        if (favorites[i + 1].contains(currentURL)) {
+          alreadyFavoriteIndex = i;
+          break;
+        }
       }
     }
     return alreadyFavoriteIndex;
@@ -171,7 +190,7 @@ class _MainActivityState extends State<MainActivity> {
         favorites.add(currentCityURL);
       }
       setFavorites(favorites);
-      setStateFavorite();
+      setState((){});
     }
   }
 
@@ -182,6 +201,7 @@ class _MainActivityState extends State<MainActivity> {
   void launchWebsite(String url) {
     if (!url.contains(lastUrl)) { // if it's not current page
       setStateLoading();
+      realUrlShown = "zzzz";
       print("URL LOADED =============> " + url);
 
       // GET FETE DU JOUR
@@ -292,6 +312,9 @@ class _MainActivityState extends State<MainActivity> {
             }
           }
 
+          //Favorites management
+          realUrlShown = url;
+
           // Merge previsions and tendances forecasts
           String final_content = content_previsions + content_tendances;
 
@@ -364,21 +387,19 @@ class _MainActivityState extends State<MainActivity> {
                         ),
                       ]
                   ),
-                  Container(
-                    padding: EdgeInsets.only(left: 14),
-                    child: IconButton(
-                      iconSize: 32.0,
-                      icon: isAFavorite ? const Icon(
-                          Icons.bookmark_add_outlined, color: Colors.black) : const Icon(
-                          Icons.bookmark_added, color: Colors.black),
-                      tooltip: 'Add to Favorites',
-                      onPressed: updateFavorites,
+                  Visibility(
+                    visible: isValidWeatherURL(realUrlShown),
+                    child: Container(
+                      padding: EdgeInsets.only(left: 10),
+                      child: buildIconButtonAddFavorites(), //IconButton Future builder
                     ),
                   ),
                 ],
               ),
             ), //CITY/FETE/FAVORITE
-            Opacity( //WEBVIEW
+            Visibility(
+              visible: webview_visibility,
+              child: Opacity( //WEBVIEW
               opacity: webview_opacity,
               child: Container(
                 margin: EdgeInsets.only(top: 15, right: 10, left: 10),
@@ -391,11 +412,12 @@ class _MainActivityState extends State<MainActivity> {
                     controller = webViewController;
                   },
                   onPageFinished: (url) {
-                    launchWebsite(url); // doesnt loop because we check last_url==url?
+                    launchWebsite(url); // doesn't loop because we check last_url==url?
                   },
                 ),
               ),
             ), //WEBVIEW
+            ),
             Container(
               width: 250,
               padding: EdgeInsets.only(top: 20),
@@ -411,7 +433,7 @@ class _MainActivityState extends State<MainActivity> {
               ),
             ), //SEARCHVIEW
             Container(
-              child: buildListViewFavorites(),
+              child: buildListViewFavorites(), // ListView Future builder
             ), //FAVORITES LIST
           ],
         ),
@@ -421,8 +443,7 @@ class _MainActivityState extends State<MainActivity> {
 
   Widget buildListViewFavorites() {
     return FutureBuilder<List<String>>(
-      //future: getFavorites(),
-      future: getFavoritesTest(),
+      future: getFavorites(),
       builder: (context, snapshot) {
         List<String> list = snapshot.data;
         int count = 0;
@@ -447,6 +468,23 @@ class _MainActivityState extends State<MainActivity> {
           }
         );
       }
+    );
+  }
+
+  Widget buildIconButtonAddFavorites(){
+    return FutureBuilder<bool>(
+        future:isCurrentURLAFavorite(realUrlShown),
+        builder: (context, snapshot){
+          bool isFav = snapshot.data;
+          return IconButton(
+            iconSize: 32.0,
+            icon: isFav ?
+              const Icon(Icons.bookmark_added, color: Colors.black) :
+              const Icon(Icons.bookmark_add_outlined, color: Colors.black),
+            tooltip: 'Add to Favorites',
+            onPressed: updateFavorites,
+          );
+        }
     );
   }
 }
