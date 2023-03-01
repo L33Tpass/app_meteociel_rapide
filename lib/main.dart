@@ -67,7 +67,7 @@ class _MainActivityState extends State<MainActivity> {
   bool loading_meteo = false;
   bool loading_meteo_finish = false;
   double webview_opacity = 0.5;
-  bool webview_visibility = false;
+  bool init_url_validity = false;
   String lastUrl = "zzzz";
   String realUrlShown = "zzzz";
   String init_url;
@@ -110,7 +110,7 @@ class _MainActivityState extends State<MainActivity> {
       launchWebsite(init_url);
     } else {
       setState(() {
-        webview_visibility = false;
+        init_url_validity = false;
       });
     }
   }
@@ -119,7 +119,7 @@ class _MainActivityState extends State<MainActivity> {
     setState(() {
       loading_meteo = true;
       loading_meteo_finish = false;
-      webview_visibility = true;
+      init_url_validity = true;
       webview_opacity = 0.5;
     });
   }
@@ -128,7 +128,7 @@ class _MainActivityState extends State<MainActivity> {
     setState(() {
       loading_meteo = false;
       loading_meteo_finish = true;
-      webview_visibility = true;
+      init_url_validity = true;
       webview_opacity = 1;
     });
   }
@@ -141,7 +141,7 @@ class _MainActivityState extends State<MainActivity> {
   /* ----- FAVORITES RELATED FUNCTIONS ----- */
 
   Future<bool> isCurrentURLAFavorite(String currentURL) async {
-    bool result = await getFavoriteIndex(currentURL) > 0;
+    bool result = await getFavoriteIndex(currentURL) >= 0;
     return result;
   }
 
@@ -226,13 +226,12 @@ class _MainActivityState extends State<MainActivity> {
               String content = table.parent.innerHtml;
               content = content.replaceAll("href=\"/pre", "href=\"http://www.meteociel.fr/pre");
               String htmlContent = "<html>" + head_CSS + "<body>" + content + "<br><br>" + "</body></html>";
+              htmlContent = htmlContent.replaceAll("http://", "https://");
               lastUrl = Uri.dataFromString(htmlContent, mimeType: 'text/html', encoding: utf8).toString();
-              controller.loadUrl(lastUrl);
               setStateLoadingFinish();
               break;
             } else { //qu'une ville
               lastUrl = url;
-              controller.loadUrl(url);
             }
           }
 
@@ -324,14 +323,14 @@ class _MainActivityState extends State<MainActivity> {
           String htmlContent = "<html>" + head_CSS + "<body>" + final_content + "</body></html>";
           htmlContent = htmlContent.replaceAll("http://", "https://");
           lastUrl = Uri.dataFromString(htmlContent, mimeType: 'text/html', encoding: utf8).toString();
-          controller.loadUrl(lastUrl);
           setStateLoadingFinish();
 
         } else { //URL quelconque
           lastUrl = url;
-          controller.loadUrl(url);
           setStateLoading();
         }
+
+        controller.loadUrl(lastUrl);
       });
     }
   }
@@ -358,7 +357,7 @@ class _MainActivityState extends State<MainActivity> {
               ),
             ), //LOADING BAR
             Container(
-              padding: EdgeInsets.only(top: 50),
+              padding: init_url_validity ? EdgeInsets.only(top: 50) : EdgeInsets.only(top:150),
               child: Row(mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Column(
@@ -368,7 +367,7 @@ class _MainActivityState extends State<MainActivity> {
                             '$nomVille',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                                fontSize: 24,
+                                fontSize: init_url_validity ? 24 : 40,
                                 fontWeight: FontWeight.bold,
                                 fontFamily: 'Raleway'
                             ),
@@ -398,7 +397,7 @@ class _MainActivityState extends State<MainActivity> {
               ),
             ), //CITY/FETE/FAVORITE
             Visibility(
-              visible: webview_visibility,
+              visible: init_url_validity,
               child: Opacity( //WEBVIEW
               opacity: webview_opacity,
               child: Container(
@@ -420,7 +419,7 @@ class _MainActivityState extends State<MainActivity> {
             ),
             Container(
               width: 250,
-              padding: EdgeInsets.only(top: 20),
+              padding: init_url_validity ? EdgeInsets.only(top: 20) : EdgeInsets.only(top:350),
               child: TextField(
                 decoration: InputDecoration(
                   icon: Icon(Icons.search),
