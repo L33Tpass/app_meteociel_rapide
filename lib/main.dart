@@ -475,6 +475,7 @@ class _MainActivityState extends State<MainActivity> {
         future:isCurrentURLAFavorite(realUrlShown),
         builder: (context, snapshot){
           bool isFav = snapshot.data;
+          if(isFav==null){isFav=false;}
           return IconButton(
             iconSize: 32.0,
             icon: isFav ?
