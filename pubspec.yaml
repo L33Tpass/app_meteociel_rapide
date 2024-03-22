@@ -8,7 +8,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  webview_flutter: ^3.0.4 #Upgrading to 4.7.0 is difficult, controller.loadUrl() doesn't exist anymore (22/03/2024)
+  webview_flutter: ^4.7.0 #Upgrading to 4.7.0 is difficult, controller.loadUrl() doesn't exist anymore (22/03/2024)
   shared_preferences: ^2.2.2
   http:
   html:

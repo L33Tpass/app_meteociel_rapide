@@ -63,7 +63,6 @@ class _MainActivityState extends State<MainActivity> {
   /*-------------------------------------------------------------------*/
   /*---------- Here is defined the behaviour of the activity ----------*/
   /*-------------------------------------------------------------------*/
-  late WebViewController controller;
   double webviewHeight = 0;
   bool loading_meteo = false;
   bool loading_meteo_finish = false;
@@ -75,6 +74,8 @@ class _MainActivityState extends State<MainActivity> {
   String nomVille = "Bonjour !";
   String nomFete = "";
   List<String> favoris = [];
+  WebViewController controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted);
 
   int colNomVille = 1;
   int colUrlVille = 2;
@@ -330,7 +331,7 @@ class _MainActivityState extends State<MainActivity> {
           setStateLoading();
         }
 
-        controller.loadUrl(lastUrl);
+        controller.loadRequest(Uri.parse(lastUrl));
       });
     }
   }
@@ -403,16 +404,8 @@ class _MainActivityState extends State<MainActivity> {
               child: Container(
                 margin: EdgeInsets.only(top: 15, right: 10, left: 10),
                 height: 800,
-                child: WebView(
-                  gestureNavigationEnabled: true,
-                  initialUrl: init_url,
-                  javascriptMode: JavascriptMode.unrestricted,
-                  onWebViewCreated: (WebViewController webViewController) {
-                    controller = webViewController;
-                  },
-                  onPageFinished: (url) {
-                    launchWebsite(url); // doesn't loop because we check last_url==url?
-                  },
+                child: WebViewWidget(
+                  controller: controller
                 ),
               ),
             ), //WEBVIEW
