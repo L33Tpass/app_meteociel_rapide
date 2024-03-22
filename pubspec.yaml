@@ -8,15 +8,15 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  webview_flutter: ^2.0.2
-  shared_preferences: ^2.0.5
+  webview_flutter: ^3.0.4 #Upgrading to 4.7.0 is difficult, controller.loadUrl() doesn't exist anymore (22/03/2024)
+  shared_preferences: ^2.2.2
   http:
   html:
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_launcher_icons: ^0.9.0
+  flutter_launcher_icons: ^0.13.1
 
 fonts:
   - family: Raleway
