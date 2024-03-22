@@ -45,7 +45,7 @@ class MyApp extends StatelessWidget {
 // ----------- HOME
 // ----------------
 class MainActivity extends StatefulWidget {
-  MainActivity({Key key, this.title}) : super(key: key); //parameters of the function
+  const MainActivity({super.key, required this.title}); //parameters of the function
   final String title;
 
   @override
@@ -63,7 +63,7 @@ class _MainActivityState extends State<MainActivity> {
   /*-------------------------------------------------------------------*/
   /*---------- Here is defined the behaviour of the activity ----------*/
   /*-------------------------------------------------------------------*/
-  WebViewController controller;
+  late WebViewController controller;
   double webviewHeight = 0;
   bool loading_meteo = false;
   bool loading_meteo_finish = false;
@@ -71,7 +71,7 @@ class _MainActivityState extends State<MainActivity> {
   bool init_url_validity = false;
   String lastUrl = "zzzz";
   String realUrlShown = "zzzz";
-  String init_url;
+  String init_url = "";
   String nomVille = "Bonjour !";
   String nomFete = "";
   List<String> favoris = [];
@@ -162,15 +162,13 @@ class _MainActivityState extends State<MainActivity> {
     // returns -1 if it is not a favorite
     List<String> favorites = await getFavorites();
     int alreadyFavoriteIndex = -1;
-    if(favorites!=null) {
-      for (int i = 0; i < favorites.length; i = i + 2) {
-        if (favorites[i + 1].contains(currentURL)) {
-          alreadyFavoriteIndex = i;
-          break;
-        }
+    for (int i = 0; i < favorites.length; i = i + 2) {
+      if (favorites[i + 1].contains(currentURL)) {
+        alreadyFavoriteIndex = i;
+        break;
       }
     }
-    return alreadyFavoriteIndex;
+      return alreadyFavoriteIndex;
   }
 
   Future<void> updateFavorites() async {
@@ -224,7 +222,7 @@ class _MainActivityState extends State<MainActivity> {
           for (Dom.Element table in tables_main_weather) {
             LinkedHashMap<dynamic, String> attr = table.attributes;
             if (attr.toString().contains("width: 300px")) {
-              String content = table.parent.innerHtml;
+              String content = table.parent!.innerHtml;
               content = content.replaceAll("href=\"/pre", "href=\"http://www.meteociel.fr/pre");
               String htmlContent = "<html>" + head_CSS + "<body>" + content + "<br><br>" + "</body></html>";
               htmlContent = htmlContent.replaceAll("http://", "https://");
@@ -264,7 +262,7 @@ class _MainActivityState extends State<MainActivity> {
                 await prefs.setString(str_key_lastURL, url);
 
                 //get & set interesting content
-                content_previsions = table.parent.innerHtml;
+                content_previsions = table.parent!.innerHtml;
                 int index = content_previsions.indexOf("<table width=\"100%\"") - 5;
                 content_previsions = content_previsions.substring(0, index); // Delete page footer
                 content_previsions = content_previsions.replaceAll("//", "https://");
@@ -296,7 +294,7 @@ class _MainActivityState extends State<MainActivity> {
                 }
 
                 //get & set interesting content
-                content_tendances = table.parent.innerHtml;
+                content_tendances = table.parent!.innerHtml;
 
                 int index = content_tendances.indexOf("raf.</td>") + 9;
                 content_tendances = content_tendances.substring(index); // Delete table header
@@ -445,23 +443,24 @@ class _MainActivityState extends State<MainActivity> {
     return FutureBuilder<List<String>>(
       future: getFavorites(),
       builder: (context, snapshot) {
-        List<String> list = snapshot.data;
-        int count = 0;
-        if(list!=null){count = (list.length / 2).round();}
+        List<String>? list = snapshot.data;
+        List<String> list1 = [];
+        if (list!=null){list1=list.toList();}
+        int count = (list1.length/2).round();
         return ListView.builder(
           padding: EdgeInsets.only(top: 10, bottom: 10), //remove padding top
           shrinkWrap: true, //auto height
           physics: NeverScrollableScrollPhysics(), //not scrollable
           itemCount: count,
           itemBuilder: (context, index) {
-            final item = list[index * 2];
+            final item = list1[index * 2];
             return Card(
               elevation: 0, //remove shadow
               color: const Color(0xFFEFEFEF),
               child: ListTile(
                 title: Text(item, textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold),),
                 onTap: () {
-                  launchWebsite(list[index*2+1]);
+                  launchWebsite(list1[index*2+1]);
                 },
               ),
             );
@@ -475,8 +474,8 @@ class _MainActivityState extends State<MainActivity> {
     return FutureBuilder<bool>(
         future:isCurrentURLAFavorite(realUrlShown),
         builder: (context, snapshot){
-          bool isFav = snapshot.data;
-          if(isFav==null){isFav=false;}
+          bool? isFav = snapshot.data;
+          isFav ??= false;
           return IconButton(
             iconSize: 32.0,
             icon: isFav ?
