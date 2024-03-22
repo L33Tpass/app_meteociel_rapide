@@ -106,8 +106,9 @@ class _MainActivityState extends State<MainActivity> {
 
   initWebview() async {
     Future<String> tempo_url = getLastUrlLoaded();
-    init_url = await tempo_url; //get String from Future<String>
-    if(isValidWeatherURL(init_url)) {
+    String buffer_url = await tempo_url; //get String from Future<String>
+    if(isValidWeatherURL(buffer_url)) { //to not update global var 'init_url' if wrong
+      init_url = buffer_url;
       launchWebsite(init_url);
     } else {
       setState(() {
@@ -223,7 +224,7 @@ class _MainActivityState extends State<MainActivity> {
             LinkedHashMap<dynamic, String> attr = table.attributes;
             if (attr.toString().contains("width: 300px")) {
               String content = table.parent!.innerHtml;
-              content = content.replaceAll("href=\"/pre", "href=\"http://www.meteociel.fr/pre");
+              content = content.replaceAll("href=\"/pre", "href=\"https://www.meteociel.fr/pre");
               String htmlContent = "<html>" + head_CSS + "<body>" + content + "<br><br>" + "</body></html>";
               htmlContent = htmlContent.replaceAll("http://", "https://");
               lastUrl = Uri.dataFromString(htmlContent, mimeType: 'text/html', encoding: utf8).toString();
